@@ -1,6 +1,6 @@
 import scrapy,json,re,urllib
 from scrapy.selector import Selector
-from MacDonaldAnalyse.items import BaiduItem,BaiduTrafficItem,ParkingLotItem
+from MacDonaldAnalyse.items import MacDonaldItem,BaiduTrafficItem,ParkingLotItem
 
 class BaiduSpider(scrapy.Spider):
     name = 'baidu'
@@ -26,7 +26,7 @@ class BaiduSpider(scrapy.Spider):
         resultList = result.get('results','')
         if '' != resultList and len(resultList) > 0:
             for result in resultList:
-                item = BaiduItem()
+                item = MacDonaldItem()
                 item['name'] = result['name']
                 item['lat'] = result['location']['lat']
                 item['lng'] = result['location']['lng']

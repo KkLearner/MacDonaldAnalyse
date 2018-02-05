@@ -1,6 +1,6 @@
 from scrapy import Request
 from scrapy.spiders import Spider
-from scrapyspider.items import Business_District_Item
+from MacDonaldAnalyse.items import Business_District_Item
 import random  # 用于随机更换UserAgent
 import json
 
@@ -8,18 +8,6 @@ import json
 
 class BusinessDistrictShop(Spider):
     name = "BusinessDistrictShop"
-    user_agent_list = [
-        "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36",
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2227.1 Safari/537.36",
-        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2227.0 Safari/537.36",
-        "Mozilla/5.0 (Windows NT 6.3; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2226.0 Safari/537.36",
-        "Mozilla/5.0 (Windows NT 6.4; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2225.0 Safari/537.36",
-        "Mozilla/5.0 (Windows NT 5.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2224.3 Safari/537.36"
-    ]
-
-    headers = {
-        'User-Agent': random.choice(user_agent_list)
-    }
 
     def start_requests(self):
         File = open('DaZhongDianPing_json.txt')
@@ -27,7 +15,7 @@ class BusinessDistrictShop(Spider):
         File.close()
         start_urls = []
         i = 0
-        print(district_list)
+        #print(district_list)
         # 命令行调试代码
         # from scrapy.shell import inspect_response
         # inspect_response(response,self)
@@ -35,7 +23,7 @@ class BusinessDistrictShop(Spider):
         for line in district_list:
             district_link = json.loads(line)
             cur_url = district_link['McDonalds_tag_href']
-            yield Request(cur_url, headers=self.headers)
+            yield Request(cur_url)
 
     def parse(self, response):
         # 命令行调试代码
