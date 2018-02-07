@@ -29,13 +29,13 @@ class CommunitySpider(scrapy.Spider):
         self.macdonalds = self.cursor.fetchall()
         self.cursor.close()
         self.conn.close()
-        self.log = [{'logname':'community','filename':'loggerCommunity.log'},
-               {'logname': 'done', 'filename': 'done.log'}]
+        self.log = [{'logname':'community','filename':'loggerCommunity.log','format':'%(asctime)s %(levelname)-8s: %(message)s'},
+               {'logname': 'done', 'filename': 'done.log','format':''}]
         self.loggers = ['','']
         for i in range(len(self.log)):
             self.loggers[i] = logging.getLogger(self.log[i]['logname'])
             handler = logging.FileHandler(self.log[i]['filename'])
-            handler.setFormatter(logging.Formatter('%(asctime)s %(levelname)-8s: %(message)s'))
+            handler.setFormatter(logging.Formatter(self.log[i]['format']))
             self.loggers[i].setLevel(logging.INFO)
             self.loggers[i].addHandler(handler)
 
