@@ -94,3 +94,5 @@ class CommunityItem(scrapy.Item):
     communityOtherDetail = scrapy.Field()  # 小区在其他的详情
     communityPrice = scrapy.Field() #小区平均价格
     communityTotal = scrapy.Field() #小区总户数
+    belong_mac = scrapy.Field()
+    type = scrapy.Field()

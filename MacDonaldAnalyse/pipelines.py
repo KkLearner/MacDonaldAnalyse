@@ -5,7 +5,7 @@
 # Don't forget to add your pipeline to the ITEM_PIPELINES setting
 # See: https://doc.scrapy.org/en/latest/topics/item-pipeline.html
 
-import codecs, MySQLdb, json
+import codecs, MySQLdb, json, traceback
 from MacDonaldAnalyse.items import MacDonaldItem\
     , BaiduTrafficItem, BaiduFoodItem, ParkingLotItem, SchoolItem, CommunityItem
 import MySQLdb.cursors
@@ -96,15 +96,17 @@ class MysqlTutorialPipeline(object):
                 sql = """
                     insert into communityitem(macDonaldId,communityName,communitylat,communitylng
                     ,communityAddress,communityUid,communityDistance,communityBaiduDetail,
-                    communityOtherDetail,communityPrice,communityTotal)
-                     values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s);
+                    communityOtherDetail,communityPrice,communityTotal,belong_mac,type)
+                     values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s);
                 """
                 cursor.execute(sql, (item['macDonaldId'], item['communityName'], item['communitylat']
                                           , item['communitylng'], item['communityAddress'], item['communityUid']
-                                          , item['communityDistance'],item['communityBaiduDetail'], item['communityOtherDetail']
-                                          , item['communityPrice'], item['communityTotal']))
+                                          , item['communityDistance'], item['communityBaiduDetail'], item['communityOtherDetail']
+                                          , item['communityPrice'], item['communityTotal'], item['belong_mac']
+                                          , item['type']))
                 self.conn.commit()
-        except:
+        except Exception:
+            print(traceback.format_exc())
             self.conn.rollback()
         finally:
             cursor.close()

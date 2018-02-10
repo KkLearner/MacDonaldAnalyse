@@ -1,4 +1,4 @@
-import scrapy,re,json
+import scrapy,re,json,uuid
 from scrapy.selector import Selector
 from MacDonaldAnalyse.items import CommunityItem
 import urllib
@@ -14,25 +14,25 @@ class TestSpider(scrapy.Spider):
                  '&radius={2}&output=json&ak={3}&scope=2&page_num={4}&page_size=20' \
                  '&radius_limit=true'
     index = 0
+    info = {}
     ak = 'LI5syaP0yQLSsgDXdPkRXb0rMnEZBhOx'
     start_urls = [communityUrl]
 
     def parse(self, response):
-        print(urllib.parse.unquote(response.url))
-        request = scrapy.Request(self.communityUrl.format(23.1575, 113.36
+        request = scrapy.Request(self.communityUrl.format(23.1279, 113.374
                 , 1000, self.ak, 0), callback=self.parseCommunity)
         request.meta['index'] = 0
         yield request
 
     def parseCommunity(self, response):
-        print('小区', urllib.parse.unquote(response.url))
-        print()
+        # print('小区', urllib.parse.unquote(response.url))
+        # print()
         result = json.loads(response.body)
         resultList = result.get('results', '')
         if '' != resultList and len(resultList) > 0:
             for result in resultList:
                 item = CommunityItem()
-                item['macDonaldId'] = 21
+                item['macDonaldId'] = 14
                 item['communityName'] = result['name']
                 item['communitylat'] = result['location']['lat']
                 item['communitylng'] = result['location']['lng']
@@ -43,13 +43,28 @@ class TestSpider(scrapy.Spider):
                 item['communityOtherDetail'] = ''
                 item['communityPrice'] = result['detail_info'].get('price', None)
                 item['communityTotal'] = None
-                if item['communityBaiduDetail'] != '':
+                item['belong_mac'] = -1
+                item['type'] = 0
+                if item['communityBaiduDetail'] != '' and not self.info.get(item['communityUid'], None):
+                    item['belong_mac'] = str(uuid.uuid1())[:23].replace('-', '')
+                    self.info[item['communityUid']] = {'uuid': item['belong_mac'],
+                                                       'communityOtherDetail': item['communityOtherDetail'],
+                                                       'communityPrice': item['communityPrice'],
+                                                       'communityTotal': item['communityTotal']}
                     detail = scrapy.Request(item['communityBaiduDetail'], callback=self.parseDetail)
                     detail.meta['item'] = item
                     yield detail
+                elif item['communityBaiduDetail'] != '':
+                    temp = self.info[item['communityUid']]
+                    item['communityOtherDetail'] = temp['communityOtherDetail']
+                    item['communityPrice'] = temp['communityPrice']
+                    item['communityTotal'] = temp['communityTotal']
+                    item['belong_mac'] = temp['uuid']
+                    item['type'] = 1
+                    yield item
             index = response.meta['index'] + 1
             if index <= 5:
-                request = scrapy.Request(self.communityUrl.format(23.1575, 113.36
+                request = scrapy.Request(self.communityUrl.format(23.1279, 113.374
                     , 1000, self.ak,index),callback=self.parseCommunity)
                 request.meta['index'] = index
                 yield request
@@ -67,34 +82,33 @@ class TestSpider(scrapy.Spider):
 
     def parseOther(self,response):
         item = response.meta['item']
+        print(urllib.parse.unquote(response.url), response.status)
         if response.status != 404:
             otherUrl = urllib.parse.unquote(response.url)
             item['communityOtherDetail'] = otherUrl
             sel = Selector(response)
             if 'fang.com' in otherUrl or 'soufun.com' in otherUrl:
                 self.setItem(sel.xpath("//div[@class='Rbiginfo']") \
-                    .xpath("//span[@class='prib']//text()").extract(),item,'communityPrice')
+                             .xpath("//span[@class='prib']//text()").extract(), item, 'communityPrice')
                 self.setItem(sel.xpath("//div[@class='Rinfolist']") \
-                    .re(r'<strong>房屋总数</strong>([^</li>]*)'),item,'communityTotal')
+                             .re(r'<strong>房屋总数</strong>([^</li>]*)'), item, 'communityTotal')
             elif 'anjuke.com' in otherUrl:
                 html = response.body.decode('utf-8')
                 index = html.find('comm_midprice')
                 item['communityPrice'] = re.sub('\D', '', html[index + 16:index + 25])
                 self.setItem(sel.xpath("//dd[@class='other-dd']")[1] \
-                                .xpath(".//text()").extract(),item,'communityTotal')
+                             .xpath(".//text()").extract(), item, 'communityTotal')
             elif 'gz.esf.leju.com' in otherUrl or 'sina.com.cn' in otherUrl:
-                self.setItem(sel.xpath("//ul[@class='com-details-t0']//li" 
-                            "[@class='t1']//span[@class='s2']//text()").extract(),item,'communityPrice')
+                self.setItem(sel.xpath("//ul[@class='com-details-t0']//li"
+                                       "[@class='t1']//span[@class='s2']//text()").extract(), item, 'communityPrice')
                 item['communityTotal'] = sel.xpath("//div[@class='panelB']//td")[2] \
                     .xpath('.//text()').extract()[1]
+            self.info[item['communityUid']] = {'uuid': item['belong_mac'],
+                                               'communityOtherDetail': item['communityOtherDetail'],
+                                               'communityPrice': item['communityPrice'],
+                                               'communityTotal': item['communityTotal']}
         yield item
 
-    def setItem(self,temp,item,name):
+    def setItem(self, temp, item, name):
         if len(temp) > 0:
             item[name] = re.sub('\D', '', temp[0])
-
-    def check(self,response):
-        if response.status != 404:
-            print('check ok')
-        else:
-            print('check no')

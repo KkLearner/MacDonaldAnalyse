@@ -1,4 +1,4 @@
-import scrapy,json,urllib,MySQLdb,re,logging
+import scrapy,json,urllib,MySQLdb,re,logging, uuid
 from scrapy.selector import Selector
 from MacDonaldAnalyse.items import CommunityItem
 
@@ -38,6 +38,7 @@ class CommunitySpider(scrapy.Spider):
             handler.setFormatter(logging.Formatter(self.log[i]['format']))
             self.loggers[i].setLevel(logging.INFO)
             self.loggers[i].addHandler(handler)
+        self.info = {}
 
     def parse(self, response):
         done = []
@@ -54,11 +55,10 @@ class CommunitySpider(scrapy.Spider):
             yield request
 
     def parseCommunity(self, response):
-        # print('小区', urllib.parse.unquote(response.url))
-        # print()
         result = json.loads(response.body)
         resultList = result.get('results', '')
         macdonald = response.meta['macdonald']
+        # print('小区', macdonald[0], response.meta['index'])
         if '' != resultList and len(resultList) > 0:
             for result in resultList:
                 item = CommunityItem()
@@ -73,10 +73,25 @@ class CommunitySpider(scrapy.Spider):
                 item['communityOtherDetail'] = ''
                 item['communityPrice'] = result['detail_info'].get('price', None)
                 item['communityTotal'] = None
-                if item['communityBaiduDetail'] != '':
+                item['belong_mac'] = -1
+                item['type'] = 0
+                if item['communityBaiduDetail'] != '' and not self.info.get(item['communityUid'], None):
+                    item['belong_mac'] = str(uuid.uuid1())[:23].replace('-','')
+                    self.info[item['communityUid']] = {'uuid': item['belong_mac'],
+                            'communityOtherDetail': item['communityOtherDetail'],
+                            'communityPrice': item['communityPrice'],
+                            'communityTotal': item['communityTotal']}
                     detail = scrapy.Request(item['communityBaiduDetail'], callback=self.parseDetail)
                     detail.meta['item'] = item
                     yield detail
+                elif item['communityBaiduDetail'] != '':
+                    temp = self.info[item['communityUid']]
+                    item['communityOtherDetail'] = temp['communityOtherDetail']
+                    item['communityPrice'] = temp['communityPrice']
+                    item['communityTotal'] = temp['communityTotal']
+                    item['belong_mac'] = temp['uuid']
+                    item['type'] = 1
+                    yield item
             index = response.meta['index'] + 1
             if index <= 5:
                 request = scrapy.Request(self.url.format(macdonald[1], macdonald[2]
@@ -91,19 +106,21 @@ class CommunitySpider(scrapy.Spider):
             self.loggers[0].info('%s is end',macdonald[0])
             self.loggers[1].info('%s', macdonald[0])
 
-    def parseDetail(self,response):
+    def parseDetail(self, response):
         item = response.meta['item']
         sel = Selector(response)
         ahrefs = sel.xpath("//div[@class='partnernav']//a[@class='from']")
         if len(ahrefs) <= 0:
             yield item
         else:
-            other = scrapy.Request(urllib.parse.unquote(ahrefs[0].re(r'url=([^&]*)')[0]), callback=self.parseOther)
+            other = scrapy.Request(urllib.parse.unquote(ahrefs[0].re(r'url=([^&]*)')[0]),
+                                   callback=self.parseOther)
             other.meta['item'] = item
             yield other
 
-    def parseOther(self,response):
+    def parseOther(self, response):
         item = response.meta['item']
+        print(urllib.parse.unquote(response.url), response.status)
         if response.status != 404:
             otherUrl = urllib.parse.unquote(response.url)
             item['communityOtherDetail'] = otherUrl
@@ -122,8 +139,12 @@ class CommunitySpider(scrapy.Spider):
             elif 'gz.esf.leju.com' in otherUrl or 'sina.com.cn' in otherUrl:
                 self.setItem(sel.xpath("//ul[@class='com-details-t0']//li"
                                        "[@class='t1']//span[@class='s2']//text()").extract(), item, 'communityPrice')
-                item['communityTotal'] = sel.xpath("//div[@class='panelB']//td")[2] \
-                    .xpath('.//text()').extract()[1]
+                item['communityTotal'] = re.sub('\D', '', sel.xpath("//div[@class='panelB']//td")[2] \
+                    .xpath('.//text()').extract()[1])
+            self.info[item['communityUid']] = {'uuid': item['belong_mac'],
+                                   'communityOtherDetail': item['communityOtherDetail'],
+                                   'communityPrice': item['communityPrice'],
+                                   'communityTotal': item['communityTotal']}
         yield item
 
     def setItem(self, temp, item, name):
